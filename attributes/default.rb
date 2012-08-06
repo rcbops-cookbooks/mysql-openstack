@@ -1,5 +1,5 @@
 default["mysql"]["services"]["db"]["scheme"] = "tcp"
-default["mysql"]["services"]["db"]["port"] = "3306"
+default["mysql"]["services"]["db"]["port"] = 3306
 default["mysql"]["services"]["db"]["network"] = "nova"
 
 case platform
