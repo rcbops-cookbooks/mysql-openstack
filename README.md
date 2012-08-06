@@ -20,8 +20,8 @@ Cookbooks
 The following cookbooks are dependencies:
 
 * [monitoring](https://github.com/rcbops-cookbooks/monitoring)
-* rcbops-cookbooks/mysql
-* rcbops-cookbooks/osops-utils
+* [mysql](https://github.com/rcbops-cookbooks/mysql)
+* [osops-utils](https://github.com/rcbops-cookbooks/osops-utils)
 
 Resources/Providers
 ===================
