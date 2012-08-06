@@ -19,7 +19,7 @@ Cookbooks
 
 The following cookbooks are dependencies:
 
-* rcbops-cookbooks/monitoring
+* [monitoring](https://github.com/rcbops-cookbooks/monitoring)
 * rcbops-cookbooks/mysql
 * rcbops-cookbooks/osops-utils
 
