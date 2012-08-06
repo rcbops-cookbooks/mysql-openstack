@@ -7,6 +7,6 @@ version           "1.0.0"
   supports os
 end
 
-%w{ mysql osops-utils }.each do |dep|
+%w{ monitoring mysql osops-utils }.each do |dep|
   depends dep
 end

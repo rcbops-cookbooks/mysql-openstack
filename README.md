@@ -19,8 +19,9 @@ Cookbooks
 
 The following cookbooks are dependencies:
 
-* mysql
-* osops-utils
+* rcbops-cookbooks/monitoring
+* rcbops-cookbooks/mysql
+* rcbops-cookbooks/osops-utils
 
 Resources/Providers
 ===================
