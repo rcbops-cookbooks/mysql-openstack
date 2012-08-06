@@ -33,7 +33,7 @@ platform_options = node["mysql"]["platform"]
 monitoring_procmon "mysqld" do
   service_name = platform_options["mysql_service"]
 
-  process_name "#{service_name}"
+  process_name service_name
   start_cmd "/usr/sbin/service #{service_name} start"
   stop_cmd "/usr/sbin/service #{service_name} stop"
 end
