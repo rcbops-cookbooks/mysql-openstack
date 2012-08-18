@@ -3,7 +3,7 @@ default["mysql"]["services"]["db"]["port"] = 3306
 default["mysql"]["services"]["db"]["network"] = "nova"
 
 case platform
-when "fedora", "redhat"
+when "fedora", "redhat", "centos"
   default["mysql"]["platform"] = {
     "mysql_service" => "mysqld"
   }
