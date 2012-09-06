@@ -3,7 +3,7 @@ license           "Apache 2.0"
 description       "Makes the mysql cookbook behave correctly with OpenStack"
 version           "1.0.3"
 
-%w{ ubuntu fedora }.each do |os|
+%w{ ubuntu fedora redhat centos }.each do |os|
   supports os
 end
 
