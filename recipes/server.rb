@@ -26,14 +26,14 @@ node.set["mysql"]["bind_address"] = mysql_info["host"]
 
 # TODO(shep): we really need to fix the mysql password stuff
 
-include_recipe "mysql::server"
-
 platform_options = node["mysql"]["platform"]
 platform_options["build_pkgs"].each do |pkg|
   package pkg do
     action :upgrade
   end
 end
+
+include_recipe "mysql::server"
 
 monitoring_procmon "mysqld" do
   service_name = platform_options["mysql_service"]
