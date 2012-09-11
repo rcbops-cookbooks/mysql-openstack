@@ -43,7 +43,7 @@ end
 
 execute "cleanup-default-users" do
   command "#{node['mysql']['mysql_bin']} -u root #{node['mysql']['server_root_password'].empty? ? '' : '-p' }\"#{node['mysql']['server_root_password']}\" < /tmp/cleanup_anonymous_users.sql"
-  only_if "#{node['mysql']['mysql_bin']} -u root -e 'show databases;' | grep test"
+  only_if "#{node['mysql']['mysql_bin']} -u root #{node['mysql']['server_root_password'].empty? ? '' : '-p' }\"#{node['mysql']['server_root_password']}\" -e 'show databases;' | grep test"
 end
 
 # Moving out of mysql cookbook
