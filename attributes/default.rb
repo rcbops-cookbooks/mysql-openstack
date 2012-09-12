@@ -6,11 +6,13 @@ case platform
 when "fedora", "redhat", "centos"
   default["mysql"]["platform"] = {
     "mysql_service" => "mysqld",
-    "build_pkgs" => ["make", "gcc-c++"]
+    "build_pkgs" => ["make", "gcc-c++"],
+    "service_bin" => "/sbin/service"
   }
 when "ubuntu"
   default["mysql"]["platform"] = {
     "mysql_service" => "mysql",
-    "build_pkgs" => ["build-essential"]
+    "build_pkgs" => ["build-essential"],
+    "service_bin" => "/usr/sbin/service"
   }
 end
