@@ -24,15 +24,14 @@ include_recipe "monitoring"
 mysql_info = get_bind_endpoint("mysql", "db")
 node.set["mysql"]["bind_address"] = mysql_info["host"]
 
-# TODO(shep): we really need to fix the mysql password stuff
-
-platform_options = node["mysql"]["platform"]
-platform_options["build_pkgs"].each do |pkg|
-  package pkg do
-    action :upgrade
-  end
+# override this default attribute in the upstream mysql cookbooke
+if platform?(%w{redhat centos amazon scientific})
+    node.override["mysql"]["tunable"]["innodb_adaptive_flushing"] = false
 end
 
+# install the mysql gem
+include_recipe "mysql::ruby"
+# install the mysql server
 include_recipe "mysql::server"
 
 # Cleanup the craptastic mysql default users
@@ -47,14 +46,16 @@ execute "cleanup-default-users" do
 end
 
 # Moving out of mysql cookbook
-#template "/root/.my.cnf" do
-#  source "dotmycnf.erb"
-#  owner "root"
-#  group "root"
-#  mode "0600"
-#  not_if "test -f /root/.my.cnf"
-#  variables :rootpasswd => node['mysql']['server_root_password']
-#end
+template "/root/.my.cnf" do
+  source "dotmycnf.erb"
+  owner "root"
+  group "root"
+  mode "0600"
+  not_if "test -f /root/.my.cnf"
+  variables :rootpasswd => node['mysql']['server_root_password']
+end
+
+platform_options = node["mysql"]["platform"]
 
 monitoring_procmon "mysqld" do
   service_name = platform_options["mysql_service"]
