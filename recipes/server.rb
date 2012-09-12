@@ -58,10 +58,11 @@ end
 
 monitoring_procmon "mysqld" do
   service_name = platform_options["mysql_service"]
+  service_bin = platform_options["service_bin"]
 
   process_name service_name
-  start_cmd "/usr/sbin/service #{service_name} start"
-  stop_cmd "/usr/sbin/service #{service_name} stop"
+  start_cmd "#{service_bin} #{service_name} start"
+  stop_cmd "#{service_bin} #{service_name} stop"
 end
 
 # This is going to fail for an external database server...
