@@ -59,10 +59,8 @@ platform_options = node["mysql"]["platform"]
 
 monitoring_procmon "mysqld" do
   service_name = platform_options["mysql_service"]
-
   process_name service_name
-  start_cmd "/usr/sbin/service #{service_name} start"
-  stop_cmd "/usr/sbin/service #{service_name} stop"
+  script_name service_name
 end
 
 # This is going to fail for an external database server...
