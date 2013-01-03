@@ -29,6 +29,11 @@ if platform?(%w{redhat centos amazon scientific})
     node.override["mysql"]["tunable"]["innodb_adaptive_flushing"] = false
 end
 
+# because of some oddness with bug 993663, we seem to not like the default
+# charset to be utf8, but latin-1 instead.
+node.override["mysql"]["tunable"]["character-set-server"] = "latin1"
+node.override["mysql"]["tunable"]["collation-server"] = "latin1_general_ci"
+
 # install the mysql gem
 include_recipe "mysql::ruby"
 # install the mysql server
