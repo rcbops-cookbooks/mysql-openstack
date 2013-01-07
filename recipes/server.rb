@@ -20,14 +20,17 @@
 
 ::Chef::Recipe.send(:include, Opscode::OpenSSL::Password)
 
+
 include_recipe "osops-utils"
 include_recipe "monitoring"
 include_recipe "mysql::ruby"
+require 'mysql'
 
 # Lookup endpoint info, and properly set mysql attributes
 mysql_info = get_bind_endpoint("mysql", "db")
 #node.set["mysql"]["bind_address"] = mysql_info["host"]
-bind_ip = get_ip_for_net("nova")
+mysql_network = node["mysql"]["services"]["db"]["network"]
+bind_ip = get_ip_for_net(mysql_network)
 node.set["mysql"]["bind_address"] = bind_ip
 
 # override default attributes in the upstream mysql cookbook
@@ -36,7 +39,7 @@ if platform?(%w{redhat centos amazon scientific})
 end
 
 # generate mysql server_id from my ip address
-node.override["mysql"]["tunable"]["server_id"] = get_ip_for_net("nova").gsub(/\./, '')
+node.override["mysql"]["tunable"]["server_id"] = get_ip_for_net(mysql_network).gsub(/\./, '')
 
 # search for first_master id (1).  If found, assume we are the second server
 # and configure accordingly.  If not, set our own and# assume we are the first
@@ -84,19 +87,15 @@ if node["mysql"]["myid"].nil?
     first_master = masters.first
     node.set_unless["mysql"]["tunable"]["repl_pass"] = first_master["mysql"]["tunable"]["repl_pass"]
 
-    node.set["mysql"]["tunable"]["auto-increment-offset"] = "2"
+    node.set["mysql"]["auto-increment-offset"] = "2"
 
     #now we have set the necessary tunables, install the mysql server
     include_recipe "mysql::server"
 
-    first_master_ip = get_ip_for_net('nova', first_master)
+    first_master_ip = get_ip_for_net(mysql_network, first_master)
     # connect to master
     ruby_block "configure slave" do
       block do
-        require 'rubygems'
-        Gem.clear_paths
-        require 'mysql'
-
         mysql_conn = Mysql.new(bind_ip, "root", node["mysql"]["server_root_password"])
         command = %Q{
         CHANGE MASTER TO
@@ -131,19 +130,15 @@ if node['mysql']['myid'] == '1'
   # we were the first master, but have we connected back to the second master yet?
   second_master = search(:node, "chef_environment:#{node.chef_environment} AND mysql_myid:2")
 
-  if second_master == 1
+  if second_master.length == 1
     Chef::Log.info("I am the first master, and I have found the second master")
     Chef::Log.info("Attempting to connect back to second master as a slave")
 
-    second_master_ip = get_ip_for_net('nova', second_master[0])
+    second_master_ip = get_ip_for_net(mysql_network, second_master[0])
 
     # attempt to connect to second master as a slave
     ruby_block "configure slave" do
       block do
-        require 'rubygems'
-        Gem.clear_paths
-        require 'mysql'
-
         mysql_conn = Mysql.new(bind_ip, "root", node["mysql"]["server_root_password"])
         command = %Q{
         CHANGE MASTER TO
