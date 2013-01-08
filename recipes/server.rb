@@ -62,7 +62,6 @@ if node["mysql"]["myid"].nil?
 
     # since we are first master, create the replication user
     mysql_connection_info = {:host => bind_ip , :username => 'root', :password => node['mysql']['server_root_password']}
-    grant_net = bind_ip.sub /[0-9]+$/,"" + "%"
 
     mysql_database_user 'repl' do
       connection mysql_connection_info
@@ -74,7 +73,7 @@ if node["mysql"]["myid"].nil?
       connection mysql_connection_info
       privileges ['REPLICATION SLAVE']
       action :grant
-      host grant_net
+      host '%'
     end
 
     # set this last so we can only be found when we are finished
