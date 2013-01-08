@@ -46,9 +46,9 @@ node.override["mysql"]["tunable"]["server_id"] = get_ip_for_net(mysql_network).g
 
 if node["mysql"]["myid"].nil?
   # then we have not yet been through setup - try and find first master
-  masters = search(:node, "chef_environment:#{node.chef_environment} AND mysql_myid:1")
+  first_master = search(:node, "chef_environment:#{node.chef_environment} AND mysql_myid:1")
 
-  if masters.length == 0
+  if first_master.length == 0
     # we must be first master
     Chef::Log.info("*** I AM FIRST MYSQL MASTER ***")
     if node["developer_mode"]
@@ -81,18 +81,17 @@ if node["mysql"]["myid"].nil?
     # set this last so we can only be found when we are finished
     node.set_unless["mysql"]["myid"] = "1"
 
-  elsif masters.length == 1
+  elsif first_master.length == 1
     # then we are second master
     Chef::Log.info("*** I AM SECOND MYSQL MASTER ***")
-    first_master = masters.first
-    node.set_unless["mysql"]["tunable"]["repl_pass"] = first_master["mysql"]["tunable"]["repl_pass"]
+    node.set_unless["mysql"]["tunable"]["repl_pass"] = first_master[0]["mysql"]["tunable"]["repl_pass"]
 
     node.set["mysql"]["auto-increment-offset"] = "2"
 
     #now we have set the necessary tunables, install the mysql server
     include_recipe "mysql::server"
 
-    first_master_ip = get_ip_for_net(mysql_network, first_master)
+    first_master_ip = get_ip_for_net(mysql_network, first_master[0])
     # connect to master
     ruby_block "configure slave" do
       block do
@@ -118,7 +117,7 @@ if node["mysql"]["myid"].nil?
     # set this last so we can only be found when we are finished
     node.set_unless["mysql"]["myid"] = 2
 
-  elsif masters.length > 1
+  elsif first_master.length > 1
     # error out here as something is wrong
     Chef::Application.fatal! "I discovered multiple mysql first masters - there can be only one!"
 
@@ -173,15 +172,31 @@ end
 
 
 
-# Cleanup the craptastic mysql default users
-cookbook_file "/tmp/cleanup_anonymous_users.sql" do
-  source "cleanup_anonymous_users.sql"
-  mode "0644"
-end
+#cookbook_file "/tmp/cleanup_anonymous_users.sql" do
+#  source "cleanup_anonymous_users.sql"
+#  mode "0644"
+#end
 
-execute "cleanup-default-users" do
-  command "#{node['mysql']['mysql_bin']} -u root #{node['mysql']['server_root_password'].empty? ? '' : '-p' }\"#{node['mysql']['server_root_password']}\" < /tmp/cleanup_anonymous_users.sql"
-  only_if "#{node['mysql']['mysql_bin']} -u root #{node['mysql']['server_root_password'].empty? ? '' : '-p' }\"#{node['mysql']['server_root_password']}\" -e 'show databases;' | grep test"
+#execute "cleanup-default-users" do
+#  command "#{node['mysql']['mysql_bin']} -u root #{node['mysql']['server_root_password'].empty? ? '' : '-p' }\"#{node['mysql']['server_root_password']}\" < /tmp/cleanup_anonymous_users.sql"
+#  only_if "#{node['mysql']['mysql_bin']} -u root #{node['mysql']['server_root_password'].empty? ? '' : '-p' }\"#{node['mysql']['server_root_password']}\" -e 'show databases;' | grep test"
+#end
+
+# Cleanup the craptastic mysql default users
+ruby_block "cleanup insecure default mysql users" do
+  block do
+    mysql_conn = Mysql.new(bind_ip, "root", node["mysql"]["server_root_password"])
+    Chef::Log.info("Removing insecure default mysql users")
+    mysql_conn.query("DELETE FROM mysql.user WHERE User=''")
+    mysql_conn.query("DELETE FROM mysql.user WHERE Password=''")
+    mysql_conn.query("DROP DATABASE IF EXISTS test")
+    mysql_conn.query("FLUSH privileges")
+  end
+  not_if do
+    mysql_conn = Mysql.new(bind_ip, "root", node["mysql"]["server_root_password"])
+    exists = mysql_conn.query("SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = 'test'")
+    exists.num_rows > 0
+  end
 end
 
 # Moving out of mysql cookbook
