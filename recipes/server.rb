@@ -38,11 +38,8 @@ if platform?(%w{redhat centos amazon scientific})
     node.override["mysql"]["tunable"]["innodb_adaptive_flushing"] = false
 end
 
-# generate mysql server_id from my ip address
-node.override["mysql"]["tunable"]["server_id"] = get_ip_for_net(mysql_network).gsub(/\./, '')
-
 # search for first_master id (1).  If found, assume we are the second server
-# and configure accordingly.  If not, set our own and# assume we are the first
+# and configure accordingly.  If not, assume we are the first
 
 if node["mysql"]["myid"].nil?
   # then we have not yet been through setup - try and find first master
@@ -51,6 +48,7 @@ if node["mysql"]["myid"].nil?
   if first_master.length == 0
     # we must be first master
     Chef::Log.info("*** I AM FIRST MYSQL MASTER ***")
+    node.override["mysql"]["tunable"]["server_id"] = '1'
     if node["developer_mode"]
       node.set_unless["mysql"]["tunable"]["repl_pass"] = "replication"
     else
@@ -85,6 +83,7 @@ if node["mysql"]["myid"].nil?
     # then we are second master
     Chef::Log.info("*** I AM SECOND MYSQL MASTER ***")
     node.set_unless["mysql"]["tunable"]["repl_pass"] = first_master[0]["mysql"]["tunable"]["repl_pass"]
+    node.override["mysql"]["tunable"]["server_id"] = '2'
 
     node.set["mysql"]["auto-increment-offset"] = "2"
 
