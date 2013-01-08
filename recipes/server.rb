@@ -43,7 +43,11 @@ end
 
 if node["mysql"]["myid"].nil?
   # then we have not yet been through setup - try and find first master
-  first_master = search(:node, "chef_environment:#{node.chef_environment} AND mysql_myid:1")
+  if Chef::Config[:solo]
+    Chef::Log.warn("This recipe uses search. Chef Solo does not support search.")
+  else
+    first_master = search(:node, "chef_environment:#{node.chef_environment} AND mysql_myid:1")
+  end
 
   if first_master.length == 0
     # we must be first master
@@ -104,7 +108,7 @@ if node["mysql"]["myid"].nil?
           MASTER_LOG_POS=0;
           }
           Chef::Log.info "Sending start replication command to mysql: "
-          Chef::Log.info "#{command}"
+          Chef::Log.info command
 
         mysql_conn.query("stop slave")
         mysql_conn.query(command)
@@ -126,7 +130,11 @@ end
 
 if node['mysql']['myid'] == '1'
   # we were the first master, but have we connected back to the second master yet?
-  second_master = search(:node, "chef_environment:#{node.chef_environment} AND mysql_myid:2")
+  if Chef::Config[:solo]
+    Chef::Log.warn("This recipe uses search. Chef Solo does not support search.")
+  else
+    second_master = search(:node, "chef_environment:#{node.chef_environment} AND mysql_myid:2")
+  end
 
   if second_master.length == 1
     Chef::Log.info("I am the first master, and I have found the second master")
@@ -147,7 +155,7 @@ if node['mysql']['myid'] == '1'
           MASTER_LOG_POS=0;
           }
         Chef::Log.info "Sending start replication command to mysql: "
-        Chef::Log.info "#{command}"
+        Chef::Log.info command
 
         mysql_conn.query("stop slave")
         mysql_conn.query(command)
