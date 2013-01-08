@@ -16,38 +16,194 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+# replication parts inspired by https://gist.github.com/1105416
+
+::Chef::Recipe.send(:include, Opscode::OpenSSL::Password)
+
 
 include_recipe "osops-utils"
 include_recipe "monitoring"
+include_recipe "mysql::ruby"
+require 'mysql'
 
 # Lookup endpoint info, and properly set mysql attributes
 mysql_info = get_bind_endpoint("mysql", "db")
-node.set["mysql"]["bind_address"] = mysql_info["host"]
+#node.set["mysql"]["bind_address"] = mysql_info["host"]
+mysql_network = node["mysql"]["services"]["db"]["network"]
+bind_ip = get_ip_for_net(mysql_network)
+node.set["mysql"]["bind_address"] = bind_ip
 
-# override this default attribute in the upstream mysql cookbooke
+# override default attributes in the upstream mysql cookbook
 if platform?(%w{redhat centos amazon scientific})
     node.override["mysql"]["tunable"]["innodb_adaptive_flushing"] = false
 end
 
-# because of some oddness with bug 993663, we seem to not like the default
-# charset to be utf8, but latin-1 instead.
-node.override["mysql"]["tunable"]["character-set-server"] = "latin1"
-node.override["mysql"]["tunable"]["collation-server"] = "latin1_general_ci"
+# search for first_master id (1).  If found, assume we are the second server
+# and configure accordingly.  If not, assume we are the first
 
-# install the mysql gem
-include_recipe "mysql::ruby"
-# install the mysql server
-include_recipe "mysql::server"
+if node["mysql"]["myid"].nil?
+  # then we have not yet been through setup - try and find first master
+  if Chef::Config[:solo]
+    Chef::Log.warn("This recipe uses search. Chef Solo does not support search.")
+  else
+    first_master = search(:node, "chef_environment:#{node.chef_environment} AND mysql_myid:1")
+  end
 
-# Cleanup the craptastic mysql default users
-cookbook_file "/tmp/cleanup_anonymous_users.sql" do
-  source "cleanup_anonymous_users.sql"
-  mode "0644"
+  if first_master.length == 0
+    # we must be first master
+    Chef::Log.info("*** I AM FIRST MYSQL MASTER ***")
+    node.override["mysql"]["tunable"]["server_id"] = '1'
+    if node["developer_mode"]
+      node.set_unless["mysql"]["tunable"]["repl_pass"] = "replication"
+    else
+      node.set_unless["mysql"]["tunable"]["repl_pass"] = secure_password
+    end
+
+    node.set["mysql"]["auto-increment-offset"] = "1"
+
+    #now we have set the necessary tunables, install the mysql server
+    include_recipe "mysql::server"
+
+    # since we are first master, create the replication user
+    mysql_connection_info = {:host => bind_ip , :username => 'root', :password => node['mysql']['server_root_password']}
+
+    mysql_database_user 'repl' do
+      connection mysql_connection_info
+      password node["mysql"]["tunable"]["repl_pass"]
+      action :create
+    end
+
+    mysql_database_user 'repl' do
+      connection mysql_connection_info
+      privileges ['REPLICATION SLAVE']
+      action :grant
+      host '%'
+    end
+
+    # set this last so we can only be found when we are finished
+    node.set_unless["mysql"]["myid"] = "1"
+
+  elsif first_master.length == 1
+    # then we are second master
+    Chef::Log.info("*** I AM SECOND MYSQL MASTER ***")
+    node.set_unless["mysql"]["tunable"]["repl_pass"] = first_master[0]["mysql"]["tunable"]["repl_pass"]
+    node.override["mysql"]["tunable"]["server_id"] = '2'
+
+    node.set["mysql"]["auto-increment-offset"] = "2"
+
+    #now we have set the necessary tunables, install the mysql server
+    include_recipe "mysql::server"
+
+    first_master_ip = get_ip_for_net(mysql_network, first_master[0])
+    # connect to master
+    ruby_block "configure slave" do
+      block do
+        mysql_conn = Mysql.new(bind_ip, "root", node["mysql"]["server_root_password"])
+        command = %Q{
+        CHANGE MASTER TO
+          MASTER_HOST="#{first_master_ip}",
+          MASTER_USER="repl",
+          MASTER_PASSWORD="#{node["mysql"]["tunable"]["repl_pass"]}",
+          MASTER_LOG_FILE="#{node["mysql"]["tunable"]["log_bin"]}.000001",
+          MASTER_LOG_POS=0;
+          }
+          Chef::Log.info "Sending start replication command to mysql: "
+          Chef::Log.info command
+
+        mysql_conn.query("stop slave")
+        mysql_conn.query(command)
+        mysql_conn.query("start slave")
+
+      end
+    end
+
+    # set this last so we can only be found when we are finished
+    node.set_unless["mysql"]["myid"] = 2
+
+  elsif first_master.length > 1
+    # error out here as something is wrong
+    Chef::Application.fatal! "I discovered multiple mysql first masters - there can be only one!"
+
+  end
+
 end
 
-execute "cleanup-default-users" do
-  command "#{node['mysql']['mysql_bin']} -u root #{node['mysql']['server_root_password'].empty? ? '' : '-p' }\"#{node['mysql']['server_root_password']}\" < /tmp/cleanup_anonymous_users.sql"
-  only_if "#{node['mysql']['mysql_bin']} -u root #{node['mysql']['server_root_password'].empty? ? '' : '-p' }\"#{node['mysql']['server_root_password']}\" -e 'show databases;' | grep test"
+if node['mysql']['myid'] == '1'
+  # we were the first master, but have we connected back to the second master yet?
+  if Chef::Config[:solo]
+    Chef::Log.warn("This recipe uses search. Chef Solo does not support search.")
+  else
+    second_master = search(:node, "chef_environment:#{node.chef_environment} AND mysql_myid:2")
+  end
+
+  if second_master.length == 1
+    Chef::Log.info("I am the first master, and I have found the second master")
+    Chef::Log.info("Attempting to connect back to second master as a slave")
+
+    second_master_ip = get_ip_for_net(mysql_network, second_master[0])
+
+    # attempt to connect to second master as a slave
+    ruby_block "configure slave" do
+      block do
+        mysql_conn = Mysql.new(bind_ip, "root", node["mysql"]["server_root_password"])
+        command = %Q{
+        CHANGE MASTER TO
+          MASTER_HOST="#{second_master_ip}",
+          MASTER_USER="repl",
+          MASTER_PASSWORD="#{node["mysql"]["tunable"]["repl_pass"]}",
+          MASTER_LOG_FILE="#{node["mysql"]["tunable"]["log_bin"]}.000001",
+          MASTER_LOG_POS=0;
+          }
+        Chef::Log.info "Sending start replication command to mysql: "
+        Chef::Log.info command
+
+        mysql_conn.query("stop slave")
+        mysql_conn.query(command)
+        mysql_conn.query("start slave")
+      end
+
+      not_if do
+        #TODO this fails if mysql is not running - check first
+        mysql_conn = Mysql.new(bind_ip, "root", node["mysql"]["server_root_password"])
+        slave_sql_running = ""
+        mysql_conn.query("show slave status") {|r| r.each_hash {|h| slave_sql_running = h['Slave_SQL_Running'] } }
+        slave_sql_running == "Yes"
+      end
+
+    end
+  else
+  Chef::Log.info("I am the first master, but the second master does not exist yet")
+  end
+end
+
+
+
+
+#cookbook_file "/tmp/cleanup_anonymous_users.sql" do
+#  source "cleanup_anonymous_users.sql"
+#  mode "0644"
+#end
+
+#execute "cleanup-default-users" do
+#  command "#{node['mysql']['mysql_bin']} -u root #{node['mysql']['server_root_password'].empty? ? '' : '-p' }\"#{node['mysql']['server_root_password']}\" < /tmp/cleanup_anonymous_users.sql"
+#  only_if "#{node['mysql']['mysql_bin']} -u root #{node['mysql']['server_root_password'].empty? ? '' : '-p' }\"#{node['mysql']['server_root_password']}\" -e 'show databases;' | grep test"
+#end
+
+# Cleanup the craptastic mysql default users
+ruby_block "cleanup insecure default mysql users" do
+  block do
+    mysql_conn = Mysql.new(bind_ip, "root", node["mysql"]["server_root_password"])
+    Chef::Log.info("Removing insecure default mysql users")
+    mysql_conn.query("DELETE FROM mysql.user WHERE User=''")
+    mysql_conn.query("DELETE FROM mysql.user WHERE Password=''")
+    mysql_conn.query("DROP DATABASE IF EXISTS test")
+    mysql_conn.query("FLUSH privileges")
+  end
+  only_if do
+    mysql_conn = Mysql.new(bind_ip, "root", node["mysql"]["server_root_password"])
+    exists = mysql_conn.query("SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = 'test'")
+    exists.num_rows > 0
+  end
 end
 
 # Moving out of mysql cookbook
