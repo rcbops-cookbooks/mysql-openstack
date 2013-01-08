@@ -192,7 +192,7 @@ ruby_block "cleanup insecure default mysql users" do
     mysql_conn.query("DROP DATABASE IF EXISTS test")
     mysql_conn.query("FLUSH privileges")
   end
-  not_if do
+  only_if do
     mysql_conn = Mysql.new(bind_ip, "root", node["mysql"]["server_root_password"])
     exists = mysql_conn.query("SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = 'test'")
     exists.num_rows > 0
