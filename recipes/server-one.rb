@@ -1,6 +1,6 @@
 #
 # Cookbook Name:: mysql-openstack
-# Recipe:: server
+# Recipe:: server-one
 #
 # Copyright 2012, Rackspace US, Inc.
 #
@@ -28,7 +28,7 @@ require 'mysql'
 # Lookup endpoint info, and properly set mysql attributes
 mysql_info = get_bind_endpoint("mysql", "db")
 mysql_network = node["mysql"]["services"]["db"]["network"]
-bind_ip = "0.0.0.0"
+bind_ip = get_ip_for_net(mysql_network)
 node.set["mysql"]["bind_address"] = bind_ip
 
 # override default attributes in the upstream mysql cookbook
@@ -36,20 +36,17 @@ if platform?(%w{redhat centos amazon scientific})
     node.override["mysql"]["tunable"]["innodb_adaptive_flushing"] = false
 end
 
-# search for first_master id (1).  If found, assume we are the second server
-# and configure accordingly.  If not, assume we are the first
+# ensure there are no other nodes running with this role - there can be only one!
+if get_settings_by_role("mysql-master", "mysql", false)
+  Chef::Application.fatal! "You can only have one node with the glance-setup role"
+end
+
+# We are the first server, and hence we get to set the passwords
 
 if node["mysql"]["myid"].nil?
-  # then we have not yet been through setup - try and find first master
-  if Chef::Config[:solo]
-    Chef::Log.warn("This recipe uses search. Chef Solo does not support search.")
-  else
-    first_master = search(:node, "chef_environment:#{node.chef_environment} AND mysql_myid:1")
-  end
+  # then we have not yet been through setup
 
-  if first_master.length == 0
-    # we must be first master
-    Chef::Log.info("*** I AM FIRST MYSQL MASTER - SETTING PASSWORDS ***")
+    Chef::Log.info("I am mysql master one - setting passwords")
     node.override["mysql"]["tunable"]["server_id"] = '1'
     if node["developer_mode"]
       node.set_unless["mysql"]["tunable"]["repl_pass"] = "replication"
@@ -59,10 +56,10 @@ if node["mysql"]["myid"].nil?
 
     node.set["mysql"]["auto-increment-offset"] = "1"
 
-    #now we have set the necessary tunables, install the mysql server
+    # now we have set the necessary tunables, install the mysql server
     include_recipe "mysql::server"
 
-    # since we are first master, create the replication user
+    # since we are master one, create the replication user
     mysql_connection_info = {:host => bind_ip , :username => 'root', :password => node['mysql']['server_root_password']}
 
     mysql_database_user 'repl' do
@@ -80,64 +77,21 @@ if node["mysql"]["myid"].nil?
 
     # set this last so we can only be found when we are finished
     node.set_unless["mysql"]["myid"] = "1"
-
-  elsif first_master.length == 1
-    # then we are second master
-    Chef::Log.info("*** I AM SECOND MYSQL MASTER ***")
-    node.set_unless["mysql"]["tunable"]["repl_pass"] = first_master[0]["mysql"]["tunable"]["repl_pass"]
-    node.override["mysql"]["tunable"]["server_id"] = '2'
-
-    node.set["mysql"]["auto-increment-offset"] = "2"
-
-    #now we have set the necessary tunables, install the mysql server
-    include_recipe "mysql::server"
-
-    first_master_ip = get_ip_for_net(mysql_network, first_master[0])
-    # connect to master
-    ruby_block "configure slave" do
-      block do
-        mysql_conn = Mysql.new(bind_ip, "root", node["mysql"]["server_root_password"])
-        command = %Q{
-        CHANGE MASTER TO
-          MASTER_HOST="#{first_master_ip}",
-          MASTER_USER="repl",
-          MASTER_PASSWORD="#{node["mysql"]["tunable"]["repl_pass"]}",
-          MASTER_LOG_FILE="#{node["mysql"]["tunable"]["log_bin"]}.000001",
-          MASTER_LOG_POS=0;
-          }
-          Chef::Log.info "Sending start replication command to mysql: "
-          Chef::Log.info command
-
-        mysql_conn.query("stop slave")
-        mysql_conn.query(command)
-        mysql_conn.query("start slave")
-
-      end
-    end
-
-    # set this last so we can only be found when we are finished
-    node.set_unless["mysql"]["myid"] = 2
-
-  elsif first_master.length > 1
-    # error out here as something is wrong
-    Chef::Application.fatal! "I discovered multiple mysql first masters - there can be only one!"
-
-  end
-
 end
 
 if node['mysql']['myid'] == '1'
-  # we were the first master, but have we connected back to the second master yet?
+  # we are master one (and by virtue of that value being set, we have also 
+  # been through setup) but have we connected back to master two yet?
   if Chef::Config[:solo]
-    Chef::Log.warn("This recipe uses search. Chef Solo does not support search.")
+    Chef::Log.fatal("This recipe uses search. Chef Solo does not support search.")
   else
-    second_master = search(:node, "chef_environment:#{node.chef_environment} AND mysql_myid:2")
+    master_two = search(:node, "chef_environment:#{node.chef_environment} AND mysql_myid:2")
   end
 
-  if second_master.length == 1
+  if master_two.length == 1
     Chef::Log.info("I am the first mysql master, and I have found the second mysql master")
 
-    second_master_ip = get_ip_for_net(mysql_network, second_master[0])
+    master_two_ip = get_ip_for_net(mysql_network, master_two[0])
 
     # attempt to connect to second master as a slave
     ruby_block "configure slave" do
@@ -145,7 +99,7 @@ if node['mysql']['myid'] == '1'
         mysql_conn = Mysql.new(bind_ip, "root", node["mysql"]["server_root_password"])
         command = %Q{
         CHANGE MASTER TO
-          MASTER_HOST="#{second_master_ip}",
+          MASTER_HOST="#{master_two_ip}",
           MASTER_USER="repl",
           MASTER_PASSWORD="#{node["mysql"]["tunable"]["repl_pass"]}",
           MASTER_LOG_FILE="#{node["mysql"]["tunable"]["log_bin"]}.000001",
@@ -169,8 +123,11 @@ if node['mysql']['myid'] == '1'
       end
 
     end
+
+  elsif master_two.length > 1
+    Chef::Log.warn("I found more than one mysql-master-two. Cannot setup replication")
   else
-  Chef::Log.info("I am currently the only mysql master")
+    Chef::Log.info("I am currently the only mysql master - nothing to do here")
   end
 end
 
@@ -228,33 +185,5 @@ monitoring_metric "mysql" do
            :warning_max => node["mysql"]["tunable"]["max_connections"].to_i * 0.8,
            :failure_max => node["mysql"]["tunable"]["max_connections"].to_i * 0.9
          })
-
-end
-
-# is there a vip for us? if so, set up keepalived vrrp
-if rcb_safe_deref(node, "vips.mysql-db")
-  svc = platform_options['mysql_service']
-  include_recipe "keepalived"
-  vip = node["vips"]["mysql-db"]
-  vrrp_name = "vi_#{vip.gsub(/\./, '_')}"
-  vrrp_interface = get_if_for_net('public', node)
-  router_id = vip.split(".")[3]
-
-  keepalived_chkscript "mysql" do
-    script "/usr/sbin/service #{svc} status"
-    interval 5
-    action :create
-  end
-
-  keepalived_vrrp vrrp_name do
-    interface vrrp_interface
-    virtual_ipaddress Array(vip)
-    virtual_router_id router_id.to_i  # Needs to be a integer between 0..255
-    track_script "rabbitmq"
-    notify_master "/usr/sbin/service #{svc} restart"
-    notify_backup "/usr/sbin/service #{svc} restart"
-    notify_fault "/usr/sbin/service #{svc} restart"
-    notifies :restart, resources(:service => "keepalived")
-  end
 
 end
