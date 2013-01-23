@@ -20,7 +20,6 @@
 
 ::Chef::Recipe.send(:include, Opscode::OpenSSL::Password)
 
-
 include_recipe "osops-utils"
 include_recipe "monitoring"
 include_recipe "mysql::ruby"
@@ -28,9 +27,8 @@ require 'mysql'
 
 # Lookup endpoint info, and properly set mysql attributes
 mysql_info = get_bind_endpoint("mysql", "db")
-#node.set["mysql"]["bind_address"] = mysql_info["host"]
 mysql_network = node["mysql"]["services"]["db"]["network"]
-bind_ip = get_ip_for_net(mysql_network)
+bind_ip = "0.0.0.0"
 node.set["mysql"]["bind_address"] = bind_ip
 
 # override default attributes in the upstream mysql cookbook
@@ -51,7 +49,7 @@ if node["mysql"]["myid"].nil?
 
   if first_master.length == 0
     # we must be first master
-    Chef::Log.info("*** I AM FIRST MYSQL MASTER ***")
+    Chef::Log.info("*** I AM FIRST MYSQL MASTER - SETTING PASSWORDS ***")
     node.override["mysql"]["tunable"]["server_id"] = '1'
     if node["developer_mode"]
       node.set_unless["mysql"]["tunable"]["repl_pass"] = "replication"
@@ -137,8 +135,7 @@ if node['mysql']['myid'] == '1'
   end
 
   if second_master.length == 1
-    Chef::Log.info("I am the first master, and I have found the second master")
-    Chef::Log.info("Attempting to connect back to second master as a slave")
+    Chef::Log.info("I am the first mysql master, and I have found the second mysql master")
 
     second_master_ip = get_ip_for_net(mysql_network, second_master[0])
 
@@ -154,6 +151,7 @@ if node['mysql']['myid'] == '1'
           MASTER_LOG_FILE="#{node["mysql"]["tunable"]["log_bin"]}.000001",
           MASTER_LOG_POS=0;
           }
+        Chef::Log.info("Attempting to connect back to second master as a slave")
         Chef::Log.info "Sending start replication command to mysql: "
         Chef::Log.info command
 
@@ -172,22 +170,9 @@ if node['mysql']['myid'] == '1'
 
     end
   else
-  Chef::Log.info("I am the first master, but the second master does not exist yet")
+  Chef::Log.info("I am currently the only mysql master")
   end
 end
-
-
-
-
-#cookbook_file "/tmp/cleanup_anonymous_users.sql" do
-#  source "cleanup_anonymous_users.sql"
-#  mode "0644"
-#end
-
-#execute "cleanup-default-users" do
-#  command "#{node['mysql']['mysql_bin']} -u root #{node['mysql']['server_root_password'].empty? ? '' : '-p' }\"#{node['mysql']['server_root_password']}\" < /tmp/cleanup_anonymous_users.sql"
-#  only_if "#{node['mysql']['mysql_bin']} -u root #{node['mysql']['server_root_password'].empty? ? '' : '-p' }\"#{node['mysql']['server_root_password']}\" -e 'show databases;' | grep test"
-#end
 
 # Cleanup the craptastic mysql default users
 ruby_block "cleanup insecure default mysql users" do
@@ -206,7 +191,6 @@ ruby_block "cleanup insecure default mysql users" do
   end
 end
 
-# Moving out of mysql cookbook
 template "/root/.my.cnf" do
   source "dotmycnf.erb"
   owner "root"
@@ -246,3 +230,36 @@ monitoring_metric "mysql" do
          })
 
 end
+
+# is there a vip for us? if so, set up keepalived vrrp
+if rcb_safe_deref(node, "vips.mysql-db")
+  svc = platform_options['mysql_service']
+  include_recipe "keepalived"
+  vip = node["vips"]["mysql-db"]
+  vrrp_name = "vi_#{vip.gsub(/\./, '_')}"
+  vrrp_interface = get_if_for_net('public', node)
+  router_id = vip.split(".")[3]
+
+  keepalived_chkscript "mysql" do
+    script "/usr/sbin/service #{svc} status"
+    interval 5
+    action :create
+  end
+
+  keepalived_vrrp vrrp_name do
+    interface vrrp_interface
+    virtual_ipaddress Array(vip)
+    virtual_router_id router_id.to_i  # Needs to be a integer between 0..255
+    track_script "rabbitmq"
+    notify_master "/usr/sbin/service #{svc} restart"
+    notify_backup "/usr/sbin/service #{svc} restart"
+    notify_fault "/usr/sbin/service #{svc} restart"
+    notifies :restart, resources(:service => "keepalived")
+  end
+
+end
+
+# this attribute needs to be reset for the osops-utils database helper to
+# work properly if only one mysql-master node
+node.set["mysql"]["bind_address"] = get_ip_for_net(mysql_network)
+node.save
