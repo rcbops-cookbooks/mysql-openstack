@@ -258,3 +258,8 @@ if rcb_safe_deref(node, "vips.mysql-db")
   end
 
 end
+
+# this attribute needs to be reset for the osops-utils database helper to
+# work properly if only one mysql-master node
+node.set["mysql"]["bind_address"] = get_ip_for_net(mysql_network)
+node.save
