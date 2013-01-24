@@ -28,13 +28,12 @@ require 'mysql'
 # Lookup endpoint info, and properly set mysql attributes
 mysql_info = get_bind_endpoint("mysql", "db")
 mysql_network = node["mysql"]["services"]["db"]["network"]
-bind_ip = "0.0.0.0"
-node.set["mysql"]["bind_address"] = bind_ip
 
 # override default attributes in the upstream mysql cookbook
 if platform?(%w{redhat centos amazon scientific})
     node.override["mysql"]["tunable"]["innodb_adaptive_flushing"] = false
 end
+node.set["mysql"]["bind_address"] = bind_ip = "0.0.0.0"
 
 # search for first_master id (1).  If found, assume we are the second server
 # and configure accordingly.  If not, assume we are the first
@@ -59,7 +58,7 @@ if node["mysql"]["myid"].nil?
 
     node.set["mysql"]["auto-increment-offset"] = "1"
 
-    #now we have set the necessary tunables, install the mysql server
+    # now we have set the necessary tunables, install the mysql server
     include_recipe "mysql::server"
 
     # since we are first master, create the replication user
@@ -78,12 +77,12 @@ if node["mysql"]["myid"].nil?
       host '%'
     end
 
-    # set this last so we can only be found when we are finished
+    # officially make us the first master
     node.set_unless["mysql"]["myid"] = "1"
 
   elsif first_master.length == 1
     # then we are second master
-    Chef::Log.info("*** I AM SECOND MYSQL MASTER ***")
+    Chef::Log.info("*** I AM SECOND MYSQL MASTER - GRABBING PASSWORD FROM FIRST MASTER ***")
     node.set_unless["mysql"]["tunable"]["repl_pass"] = first_master[0]["mysql"]["tunable"]["repl_pass"]
     node.override["mysql"]["tunable"]["server_id"] = '2'
 
@@ -115,7 +114,7 @@ if node["mysql"]["myid"].nil?
       end
     end
 
-    # set this last so we can only be found when we are finished
+    # officially make us the first master
     node.set_unless["mysql"]["myid"] = 2
 
   elsif first_master.length > 1
@@ -123,7 +122,6 @@ if node["mysql"]["myid"].nil?
     Chef::Application.fatal! "I discovered multiple mysql first masters - there can be only one!"
 
   end
-
 end
 
 if node['mysql']['myid'] == '1'
@@ -231,8 +229,9 @@ monitoring_metric "mysql" do
 
 end
 
-# is there a vip for us? if so, set up keepalived vrrp
+# is there a vip for us? If so, set up keepalived vrrp
 if rcb_safe_deref(node, "vips.mysql-db")
+
   svc = platform_options['mysql_service']
   include_recipe "keepalived"
   vip = node["vips"]["mysql-db"]
@@ -250,7 +249,7 @@ if rcb_safe_deref(node, "vips.mysql-db")
     interface vrrp_interface
     virtual_ipaddress Array(vip)
     virtual_router_id router_id.to_i  # Needs to be a integer between 0..255
-    track_script "rabbitmq"
+    track_script "mysql"
     notify_master "/usr/sbin/service #{svc} restart"
     notify_backup "/usr/sbin/service #{svc} restart"
     notify_fault "/usr/sbin/service #{svc} restart"
@@ -258,8 +257,3 @@ if rcb_safe_deref(node, "vips.mysql-db")
   end
 
 end
-
-# this attribute needs to be reset for the osops-utils database helper to
-# work properly if only one mysql-master node
-node.set["mysql"]["bind_address"] = get_ip_for_net(mysql_network)
-node.save
