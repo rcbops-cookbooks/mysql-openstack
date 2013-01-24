@@ -7,6 +7,6 @@ version           "1.0.10"
   supports os
 end
 
-%w{ database monitoring mysql osops-utils }.each do |dep|
+%w{ database keepalived monitoring mysql osops-utils }.each do |dep|
   depends dep
 end
