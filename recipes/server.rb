@@ -84,6 +84,7 @@ if node["mysql"]["myid"].nil?
     # then we are second master
     Chef::Log.info("*** I AM SECOND MYSQL MASTER - GRABBING PASSWORD FROM FIRST MASTER ***")
     node.set_unless["mysql"]["tunable"]["repl_pass"] = first_master[0]["mysql"]["tunable"]["repl_pass"]
+    node.set_unless["mysql"]["server_root_password"] = first_master[0]["mysql"]["server_root_password"]
     node.override["mysql"]["tunable"]["server_id"] = '2'
 
     node.set["mysql"]["auto-increment-offset"] = "2"
@@ -114,7 +115,7 @@ if node["mysql"]["myid"].nil?
       end
     end
 
-    # officially make us the first master
+    # officially make us the second master
     node.set_unless["mysql"]["myid"] = 2
 
   elsif first_master.length > 1
