@@ -16,10 +16,12 @@ override["mysql"]["auto-increment-increment"] = "2"
 case platform
 when "fedora", "redhat", "centos", "scientific", "amazon"
   default["mysql"]["platform"] = {                          # node_attribute
-    "mysql_service" => "mysqld"
+    "mysql_service" => "mysqld",
+    "service_bin" => "/sbin/service"
   }
 when "ubuntu", "debian"
   default["mysql"]["platform"] = {                          # node_attribute
-    "mysql_service" => "mysql"
+    "mysql_service" => "mysql",
+    "service_bin" => "/usr/sbin/service"
   }
 end
