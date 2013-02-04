@@ -241,7 +241,7 @@ if rcb_safe_deref(node, "vips.mysql-db")
   router_id = vip.split(".")[3]
 
   keepalived_chkscript "mysql" do
-    script "/usr/sbin/service #{svc} status"
+    script "#{platform_options["service_bin"]} #{svc} status"
     interval 5
     action :create
   end
@@ -251,9 +251,6 @@ if rcb_safe_deref(node, "vips.mysql-db")
     virtual_ipaddress Array(vip)
     virtual_router_id router_id.to_i  # Needs to be a integer between 0..255
     track_script "mysql"
-    notify_master "/usr/sbin/service #{svc} restart"
-    notify_backup "/usr/sbin/service #{svc} restart"
-    notify_fault "/usr/sbin/service #{svc} restart"
     notifies :restart, resources(:service => "keepalived")
   end
 
