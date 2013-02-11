@@ -1,6 +1,6 @@
 default["mysql"]["services"]["db"]["scheme"] = "tcp"        # node_attribute
 default["mysql"]["services"]["db"]["port"] = 3306           # node_attribute
-default["mysql"]["services"]["db"]["network"] = "nova"      # node_attribute
+default["mysql"]["services"]["db"]["network"] = "management"      # node_attribute
 
 
 # because of some oddness with bug 993663, we seem to not like the default
