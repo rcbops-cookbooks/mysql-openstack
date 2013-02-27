@@ -252,6 +252,9 @@ if rcb_safe_deref(node, "vips.mysql-db")
     virtual_router_id router_id.to_i  # Needs to be a integer between 0..255
     track_script "mysql"
     notifies :restart, resources(:service => "keepalived")
+    notify_master "#{platform_options["service_bin"]} keystone restart"
+    notify_backup "#{platform_options["service_bin"]} keystone restart"
+    notify_fault  "#{platform_options["service_bin"]} keystone restart"
   end
 
 end
