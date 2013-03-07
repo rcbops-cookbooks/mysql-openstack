@@ -12,6 +12,8 @@ override["mysql"]["tunable"]["binlog_format"]    = "statement"
 override["mysql"]["tunable"]["log_bin"] = "mysql-binlog"
 override["mysql"]["auto-increment-increment"] = "2"
 
+override["mysql"]["tunable"]["log-queries-not-using-index"] = false
+
 
 case platform
 when "fedora", "redhat", "centos", "scientific", "amazon"
