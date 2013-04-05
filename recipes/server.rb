@@ -30,10 +30,11 @@ mysql_info = get_bind_endpoint("mysql", "db")
 mysql_network = node["mysql"]["services"]["db"]["network"]
 
 # override default attributes in the upstream mysql cookbook
-if platform?(%w{redhat centos amazon scientific})
-    node.override["mysql"]["tunable"]["innodb_adaptive_flushing"] = false
-end
 node.set["mysql"]["bind_address"] = bind_ip = "0.0.0.0"
+node.set['mysql']['tunable']['innodb_thread_concurrency']       = "0"
+node.set['mysql']['tunable']['innodb_commit_concurrency']       = "0"
+node.set['mysql']['tunable']['innodb_read_io_threads']          = "4"
+node.set['mysql']['tunable']['innodb_flush_log_at_trx_commit']  = "2"
 
 # search for first_master id (1).  If found, assume we are the second server
 # and configure accordingly.  If not, assume we are the first
