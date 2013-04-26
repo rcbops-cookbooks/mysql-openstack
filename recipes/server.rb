@@ -239,7 +239,6 @@ if rcb_safe_deref(node, "vips.mysql-db")
   vip = node["vips"]["mysql-db"]
   vrrp_name = "vi_#{vip.gsub(/\./, '_')}"
   vrrp_interface = get_if_for_net('public', node)
-  router_id = vip.split(".")[3]
 
   keepalived_chkscript "mysql" do
     script "#{platform_options["service_bin"]} #{svc} status"
@@ -250,7 +249,7 @@ if rcb_safe_deref(node, "vips.mysql-db")
   keepalived_vrrp vrrp_name do
     interface vrrp_interface
     virtual_ipaddress Array(vip)
-    virtual_router_id router_id.to_i  # Needs to be a integer between 0..255
+    virtual_router_id node["mysql"]["ha"]["vrid"]  # Needs to be a integer between 1..255
     track_script "mysql"
     notifies :restart, resources(:service => "keepalived")
     notify_master "#{platform_options["service_bin"]} keystone restart"
