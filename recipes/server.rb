@@ -174,6 +174,11 @@ if node['mysql']['myid'] == '1'
   end
 end
 
+# to ensure that we pick up attr/config changes and are able to do upgrades etc after a deployment,
+# we need to include the mysql::server recipe again here, since all of the above blocks are skipped
+# after the initial deployment.
+include_recipe "mysql::server"
+
 # Cleanup the craptastic mysql default users
 ruby_block "cleanup insecure default mysql users" do
   block do
