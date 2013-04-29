@@ -50,7 +50,7 @@ if node["mysql"]["myid"].nil?
   if first_master.length == 0
     # we must be first master
     Chef::Log.info("*** I AM FIRST MYSQL MASTER - SETTING PASSWORDS ***")
-    node.override["mysql"]["tunable"]["server_id"] = '1'
+    node.set["mysql"]["tunable"]["server_id"] = '1'
     if node["developer_mode"]
       node.set_unless["mysql"]["tunable"]["repl_pass"] = "replication"
     else
@@ -86,7 +86,7 @@ if node["mysql"]["myid"].nil?
     Chef::Log.info("*** I AM SECOND MYSQL MASTER - GRABBING PASSWORD FROM FIRST MASTER ***")
     node.set_unless["mysql"]["tunable"]["repl_pass"] = first_master[0]["mysql"]["tunable"]["repl_pass"]
     node.set_unless["mysql"]["server_root_password"] = first_master[0]["mysql"]["server_root_password"]
-    node.override["mysql"]["tunable"]["server_id"] = '2'
+    node.set["mysql"]["tunable"]["server_id"] = '2'
 
     node.set["mysql"]["auto-increment-offset"] = "2"
 
