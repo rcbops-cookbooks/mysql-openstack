@@ -238,7 +238,7 @@ if rcb_safe_deref(node, "vips.mysql-db")
   include_recipe "keepalived"
   vip = node["vips"]["mysql-db"]
   vrrp_name = "vi_#{vip.gsub(/\./, '_')}"
-  vrrp_network = node["vips"]["osops_network"]
+  vrrp_network = node["mysql"]["services"]["db"]["vip_network"]
   vrrp_interface = get_if_for_net(vrrp_network, node)
   router_id = vip.split(".")[3]
 
