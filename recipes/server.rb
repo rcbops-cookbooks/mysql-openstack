@@ -243,7 +243,8 @@ if rcb_safe_deref(node, "vips.mysql-db")
   include_recipe "keepalived"
   vip = node["vips"]["mysql-db"]
   vrrp_name = "vi_#{vip.gsub(/\./, '_')}"
-  vrrp_interface = get_if_for_net('public', node)
+  vrrp_network = node["mysql"]["services"]["db"]["vip_network"]
+  vrrp_interface = get_if_for_net(vrrp_network, node)
   # TODO(anyone): fix this in a way that lets us run multiple clusters in the
   #               same broadcast domain.
   # this doesn't solve for the last octect == 255
