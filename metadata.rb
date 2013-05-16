@@ -7,6 +7,6 @@ version           "1.0.14"
   supports os
 end
 
-%w{ database keepalived monitoring mysql openssl osops-utils }.each do |dep|
+%w{ database keepalived mysql openssl osops-utils }.each do |dep|
   depends dep
 end
