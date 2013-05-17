@@ -36,7 +36,6 @@ Cookbooks
 The following cookbooks are dependencies:
 
 * [keepalived](https://github.com/rcbops-cookbooks/keepalived)
-* [monitoring](https://github.com/rcbops-cookbooks/monitoring)
 * [mysql](https://github.com/rcbops-cookbooks/mysql)
 * [openssl](https://github.com/opscode-cookbooks/openssl)
 * [osops-utils](https://github.com/rcbops-cookbooks/osops-utils)
