@@ -21,7 +21,6 @@
 ::Chef::Recipe.send(:include, Opscode::OpenSSL::Password)
 
 include_recipe "osops-utils"
-include_recipe "monitoring"
 include_recipe "mysql::ruby"
 require 'mysql'
 
@@ -206,35 +205,6 @@ template "/root/.my.cnf" do
 end
 
 platform_options = node["mysql"]["platform"]
-
-monitoring_procmon "mysqld" do
-  service_name = platform_options["mysql_service"]
-  process_name service_name
-  script_name service_name
-end
-
-# This is going to fail for an external database server...
-monitoring_metric "mysqld-proc" do
-  type "proc"
-  proc_name "mysqld"
-  proc_regex platform_options["mysql_service"]
-
-  alarms(:failure_min => 1.0)
-end
-
-monitoring_metric "mysql" do
-  type "mysql"
-  host mysql_info["host"]
-  user "root"
-  password node["mysql"]["server_root_password"]
-  port mysql_info["port"]
-
-  alarms("max_connections" => {
-           :warning_max => node["mysql"]["tunable"]["max_connections"].to_i * 0.8,
-           :failure_max => node["mysql"]["tunable"]["max_connections"].to_i * 0.9
-         })
-
-end
 
 # is there a vip for us? If so, set up keepalived vrrp
 if rcb_safe_deref(node, "vips.mysql-db")
