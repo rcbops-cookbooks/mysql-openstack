@@ -1,6 +1,7 @@
 default["mysql"]["services"]["db"]["scheme"] = "tcp"        # node_attribute
 default["mysql"]["services"]["db"]["port"] = 3306           # node_attribute
 default["mysql"]["services"]["db"]["network"] = "management"      # node_attribute
+default["mysql"]["services"]["db"]["vip_network"] = "public"      # node_attribute
 
 # because of some oddness with bug 993663, we seem to not like the default
 # charset to be utf8, but latin-1 instead.
