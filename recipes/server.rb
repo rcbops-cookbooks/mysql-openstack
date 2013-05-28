@@ -214,9 +214,8 @@ if rcb_safe_deref(node, "vips.mysql-db")
   vip = node["vips"]["mysql-db"]
   vrrp_name = "vi_#{vip.gsub(/\./, '_')}"
   vrrp_interface = get_if_for_net('public', node)
-  # TODO(anyone): fix this in a way that lets us run multiple clusters in the
-  #               same broadcast domain.
-  # this doesn't solve for the last octect == 255
+  # If no VRID is speicified it will use the last octet.
+  # We can override the VRID value to avoid issues with 255/IP address conflict
   if node["mysql"]["ha"]["vrid"] > 0 and node["mysql"]["ha"]["vrid"] < 256
     router_id = node["mysql"]["ha"]["vrid"]
   else
