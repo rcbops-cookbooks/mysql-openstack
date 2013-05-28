@@ -217,7 +217,12 @@ if rcb_safe_deref(node, "vips.mysql-db")
   # TODO(anyone): fix this in a way that lets us run multiple clusters in the
   #               same broadcast domain.
   # this doesn't solve for the last octect == 255
-  router_id = vip.split(".")[3].to_i + 1
+  if node["mysql"]["ha"]["vrid"] > 0 and node["mysql"]["ha"]["vrid"] < 256
+    router_id = node["mysql"]["ha"]["vrid"]
+  else
+    Chef::Log.info("Invalid or no vrid set - defaulting to last octet of IP + 1")
+    router_id = vip.split(".")[3].to_i + 1
+  end
 
   keepalived_chkscript "mysql" do
     script "#{platform_options["service_bin"]} #{svc} status"
