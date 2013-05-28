@@ -2,6 +2,8 @@ default["mysql"]["services"]["db"]["scheme"] = "tcp"        # node_attribute
 default["mysql"]["services"]["db"]["port"] = 3306           # node_attribute
 default["mysql"]["services"]["db"]["network"] = "management"      # node_attribute
 
+default["mysql"]["ha"]["vrid"] = 0
+
 # because of some oddness with bug 993663, we seem to not like the default
 # charset to be utf8, but latin-1 instead.
 override["mysql"]["tunable"]["character-set-server"] = "latin1"
