@@ -213,7 +213,8 @@ if rcb_safe_deref(node, "vips.mysql-db")
   include_recipe "keepalived"
   vip = node["vips"]["mysql-db"]
   vrrp_name = "vi_#{vip.gsub(/\./, '_')}"
-  vrrp_interface = get_if_for_net('public', node)
+  vrrp_network = node["mysql"]["services"]["db"]["vip_network"]
+  vrrp_interface = get_if_for_net(vrrp_network, node)
   # If no VRID is speicified it will use the last octet.
   # We can override the VRID value to avoid issues with 255/IP address conflict
   if node["mysql"]["ha"]["vrid"] > 0 and node["mysql"]["ha"]["vrid"] < 256
