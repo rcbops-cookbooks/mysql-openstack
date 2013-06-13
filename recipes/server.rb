@@ -215,14 +215,7 @@ if rcb_safe_deref(node, "vips.mysql-db")
   vrrp_name = "vi_#{vip.gsub(/\./, '_')}"
   vrrp_network = node["mysql"]["services"]["db"]["vip_network"]
   vrrp_interface = get_if_for_net(vrrp_network, node)
-  # If no VRID is speicified it will use the last octet.
-  # We can override the VRID value to avoid issues with 255/IP address conflict
-  if node["mysql"]["ha"]["vrid"] > 0 and node["mysql"]["ha"]["vrid"] < 256
-    router_id = node["mysql"]["ha"]["vrid"]
-  else
-    Chef::Log.info("Invalid or no vrid set - defaulting to last octet of IP + 1")
-    router_id = vip.split(".")[3].to_i + 1
-  end
+  router_id = node["mysql"]["ha"]["vrid"]
 
   keepalived_chkscript "mysql" do
     script "#{platform_options["service_bin"]} #{svc} status"
