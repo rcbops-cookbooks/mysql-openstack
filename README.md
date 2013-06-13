@@ -59,6 +59,7 @@ Attributes
 * `mysql['services']['db']['scheme']` - Communication scheme
 * `mysql['services']['db']['port']` - Port on which mysqld listens
 * `mysql['services']['db']['network']` - `osops_networks` network name which service operates on
+* `mysql['ha']['vrid']` - `define the VRRP router ID used by keepalived.  This must be an integer > 0 and < 255.  Defaults to 10.
 
 Templates
 =========
