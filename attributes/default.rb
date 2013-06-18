@@ -1,7 +1,6 @@
 default["mysql"]["services"]["db"]["scheme"] = "tcp"        # node_attribute
 default["mysql"]["services"]["db"]["port"] = 3306           # node_attribute
 default["mysql"]["services"]["db"]["network"] = "management"      # node_attribute
-default["mysql"]["services"]["db"]["vip_network"] = "public"
 
 default["mysql"]["ha"]["vrid"] = 10
 
