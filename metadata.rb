@@ -1,3 +1,4 @@
+name              "mysql-openstack"
 maintainer        "Rackspace US, Inc."
 license           "Apache 2.0"
 description       "Makes the mysql cookbook behave correctly with OpenStack"
