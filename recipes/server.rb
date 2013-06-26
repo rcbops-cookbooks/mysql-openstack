@@ -50,7 +50,7 @@ if node["mysql"]["myid"].nil?
     # we must be first master
     Chef::Log.info("*** I AM FIRST MYSQL MASTER - SETTING PASSWORDS ***")
     node.set["mysql"]["tunable"]["server_id"] = '1'
-    if node["developer_mode"]
+    if node["developer_mode"] == true
       node.set_unless["mysql"]["tunable"]["repl_pass"] = "replication"
     else
       node.set_unless["mysql"]["tunable"]["repl_pass"] = secure_password
