@@ -218,7 +218,7 @@ if rcb_safe_deref(node, "vips.mysql-db")
   router_id = node["mysql"]["ha"]["vrid"]
 
   keepalived_chkscript "mysql" do
-    script "#{platform_options["service_bin"]} #{svc} status"
+    script "killall -0 mysqld"
     interval 5
     action :create
   end
