@@ -10,7 +10,6 @@ override["mysql"]["tunable"]["character-set-server"] = "latin1"
 override["mysql"]["tunable"]["collation-server"] = "latin1_general_ci"
 
 override["mysql"]["tunable"]["binlog_format"]    = "statement"
-override["mysql"]["tunable"]["log_bin"] = "mysql-binlog"
 override["mysql"]["auto-increment-increment"] = "2"
 override['mysql']['tunable']['max_connect_errors']   = "1000"
 
