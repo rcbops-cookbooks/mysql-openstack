@@ -61,6 +61,17 @@ if node["mysql"]["myid"].nil?
     # now we have set the necessary tunables, install the mysql server
     include_recipe "mysql::server"
 
+    # wait for all the install_db stuff to finish before we enable binlogging
+    execute "wait for mysql_install_db to finish" do
+      command "sleep 10s"
+    end
+
+    cookbook_file "#{node["mysql"]["confd_dir"]}/binlog.cnf" do
+      source "binlog.cnf"
+      mode "0644"
+      notifies :restart, "service[mysql]", :immediately
+    end
+
     # since we are first master, create the replication user
     mysql_connection_info = {:host => bind_ip , :username => 'root', :password => node['mysql']['server_root_password']}
 
@@ -92,6 +103,17 @@ if node["mysql"]["myid"].nil?
     #now we have set the necessary tunables, install the mysql server
     include_recipe "mysql::server"
 
+    # wait for all the install_db stuff to finish before we enable binlogging
+    execute "wait for mysql_install_db to finish" do
+      command "sleep 10s"
+    end
+
+    cookbook_file "#{node["mysql"]["confd_dir"]}/binlog.cnf" do
+      source "binlog.cnf"
+      mode "0644"
+      notifies :restart, "service[mysql]", :immediately
+    end
+
     first_master_ip = get_ip_for_net(mysql_network, first_master[0])
     # connect to master
     ruby_block "configure slave" do
@@ -102,7 +124,7 @@ if node["mysql"]["myid"].nil?
           MASTER_HOST="#{first_master_ip}",
           MASTER_USER="repl",
           MASTER_PASSWORD="#{node["mysql"]["tunable"]["repl_pass"]}",
-          MASTER_LOG_FILE="#{node["mysql"]["tunable"]["log_bin"]}.000001",
+          MASTER_LOG_FILE="mysql-binlog.000001",
           MASTER_LOG_POS=0;
           }
           Chef::Log.info "Sending start replication command to mysql: "
@@ -147,7 +169,7 @@ if node['mysql']['myid'] == '1'
           MASTER_HOST="#{second_master_ip}",
           MASTER_USER="repl",
           MASTER_PASSWORD="#{node["mysql"]["tunable"]["repl_pass"]}",
-          MASTER_LOG_FILE="#{node["mysql"]["tunable"]["log_bin"]}.000001",
+          MASTER_LOG_FILE="mysql-binlog.000001",
           MASTER_LOG_POS=0;
           }
         Chef::Log.info("Attempting to connect back to second master as a slave")
