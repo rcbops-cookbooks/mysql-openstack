@@ -229,15 +229,15 @@ end
 platform_options = node["mysql"]["platform"]
 
 # is there a vip for us? If so, set up keepalived vrrp
-if rcb_safe_deref(node, "vips.mysql-db")
+if rcb_safe_deref(node, "vips.mysql-db.vip")
 
   svc = platform_options['mysql_service']
   include_recipe "keepalived"
-  vip = node["vips"]["mysql-db"]
+  vip = node["vips"]["mysql-db"]["vip"]
   vrrp_name = "vi_#{vip.gsub(/\./, '_')}"
   vrrp_network = node["mysql"]["services"]["db"]["network"]
   vrrp_interface = get_if_for_net(vrrp_network, node)
-  router_id = node["mysql"]["ha"]["vrid"]
+  router_id = node["vips"]["mysql-db"]["vrid"]
 
   keepalived_chkscript "mysql" do
     script "killall -0 mysqld"
