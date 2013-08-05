@@ -229,15 +229,24 @@ end
 platform_options = node["mysql"]["platform"]
 
 # is there a vip for us? If so, set up keepalived vrrp
-if rcb_safe_deref(node, "vips.mysql-db.vip")
+if rcb_safe_deref(node, "vips.mysql-db")
 
   svc = platform_options['mysql_service']
   include_recipe "keepalived"
-  vip = node["vips"]["mysql-db"]["vip"]
+  vip = node["vips"]["mysql-db"]
   vrrp_name = "vi_#{vip.gsub(/\./, '_')}"
-  vrrp_network = node["mysql"]["services"]["db"]["network"]
+  if not vrrp_network = rcb_safe_deref(node, "vips_config_#{vip}_network","_")
+    Chef::Application.fatal! "You have not configured a Network for the VIP.  Please set node[\"vips\"][\"config\"][\"#{vip}\"][\"network\"]"
+  end
   vrrp_interface = get_if_for_net(vrrp_network, node)
-  router_id = node["vips"]["mysql-db"]["vrid"]
+
+  if router_id = rcb_safe_deref(node, "vips_config_#{vip}_vrid","_")
+    Chef::Log.debug "using #{router_id} for vips.config.#{vip}.vrid"
+  elsif router_id = rcb_safe_deref(node, "mysql.ha.vrid")
+    Chef::Application.fatal! "node[\"mysql\"][\"ha\"][\"vrid\"] is deprecated.  Please set node[\"vips\"][\"config\"][\"#{vip}\"][\"vrid\"] instead"
+  else
+    Chef::Application.fatal! "You have not configured a VRID for the VIP.  Please set node[\"vips\"][\"config\"][\"#{vip}\"][\"vrid\"]"
+  end
 
   keepalived_chkscript "mysql" do
     script "killall -0 mysqld"
