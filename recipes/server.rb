@@ -146,6 +146,8 @@ if node["mysql"]["myid"].nil?
     Chef::Application.fatal! "I discovered multiple mysql first masters - there can be only one!"
 
   end
+elsif node["mysql"]["tunable"]["server_id"].nil?
+  Chef::Application.fatal!('node["mysql"]["tunable"]["server_id"] is not set, please check its value in the node\'s my.cnf file and update the node attribute.')
 end
 
 if node['mysql']['myid'] == '1'
