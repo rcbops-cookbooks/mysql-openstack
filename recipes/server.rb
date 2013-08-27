@@ -25,7 +25,6 @@ include_recipe "mysql::ruby"
 require 'mysql'
 
 # Lookup endpoint info, and properly set mysql attributes
-mysql_info = get_bind_endpoint("mysql", "db")
 mysql_network = node["mysql"]["services"]["db"]["network"]
 
 # override default attributes in the upstream mysql cookbook
@@ -51,12 +50,7 @@ if node["mysql"]["myid"].nil?
     # we must be first master
     Chef::Log.info("*** I AM FIRST MYSQL MASTER - SETTING PASSWORDS ***")
     node.set["mysql"]["tunable"]["server_id"] = '1'
-    if node["developer_mode"] == true
-      node.set_unless["mysql"]["tunable"]["repl_pass"] = "replication"
-    else
-      node.set_unless["mysql"]["tunable"]["repl_pass"] = secure_password
-    end
-
+    node.set_unless["mysql"]["server_repl_password"] = secure_password
     node.set["mysql"]["auto-increment-offset"] = "1"
 
     # now we have set the necessary tunables, install the mysql server
@@ -78,7 +72,7 @@ if node["mysql"]["myid"].nil?
 
     mysql_database_user 'repl' do
       connection mysql_connection_info
-      password node["mysql"]["tunable"]["repl_pass"]
+      password node["mysql"]["server_repl_password"]
       action :create
     end
 
@@ -95,7 +89,7 @@ if node["mysql"]["myid"].nil?
   elsif first_master.length == 1
     # then we are second master
     Chef::Log.info("*** I AM SECOND MYSQL MASTER - GRABBING PASSWORD FROM FIRST MASTER ***")
-    node.set_unless["mysql"]["tunable"]["repl_pass"] = first_master[0]["mysql"]["tunable"]["repl_pass"]
+    node.set_unless["mysql"]["server_repl_password"] = first_master[0]["mysql"]["server_repl_password"]
     node.set_unless["mysql"]["server_root_password"] = first_master[0]["mysql"]["server_root_password"]
     node.set["mysql"]["tunable"]["server_id"] = '2'
 
@@ -124,7 +118,7 @@ if node["mysql"]["myid"].nil?
         CHANGE MASTER TO
           MASTER_HOST="#{first_master_ip}",
           MASTER_USER="repl",
-          MASTER_PASSWORD="#{node["mysql"]["tunable"]["repl_pass"]}",
+          MASTER_PASSWORD="#{node["mysql"]["server_repl_password"]}",
           MASTER_LOG_FILE="mysql-binlog.000001",
           MASTER_LOG_POS=0;
           }
@@ -147,7 +141,7 @@ if node["mysql"]["myid"].nil?
 
   end
 elsif node["mysql"]["tunable"]["server_id"].nil?
-  Chef::Application.fatal!('node["mysql"]["tunable"]["server_id"] is not set, please check its value in the node\'s my.cnf file and update the node attribute.')
+  node.set["mysql"]["tunable"]["server_id"] = node["mysql"]["myid"]
 end
 
 if node['mysql']['myid'] == '1'
@@ -171,7 +165,7 @@ if node['mysql']['myid'] == '1'
         CHANGE MASTER TO
           MASTER_HOST="#{second_master_ip}",
           MASTER_USER="repl",
-          MASTER_PASSWORD="#{node["mysql"]["tunable"]["repl_pass"]}",
+          MASTER_PASSWORD="#{node["mysql"]["server_repl_password"]}",
           MASTER_LOG_FILE="mysql-binlog.000001",
           MASTER_LOG_POS=0;
           }
@@ -239,12 +233,8 @@ template "/root/.my.cnf" do
   variables :rootpasswd => node['mysql']['server_root_password']
 end
 
-platform_options = node["mysql"]["platform"]
-
 # is there a vip for us? If so, set up keepalived vrrp
 if rcb_safe_deref(node, "vips.mysql-db")
-
-  svc = platform_options['mysql_service']
   include_recipe "keepalived"
   vip = node["vips"]["mysql-db"]
   vrrp_name = "vi_#{vip.gsub(/\./, '_')}"
