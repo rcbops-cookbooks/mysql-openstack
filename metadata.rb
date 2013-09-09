@@ -2,7 +2,7 @@ name              "mysql-openstack"
 maintainer        "Rackspace US, Inc."
 license           "Apache 2.0"
 description       "Makes the mysql cookbook behave correctly with OpenStack"
-version           "1.0.14"
+version           "4.1.2"
 
 %w{ centos ubuntu }.each do |os|
   supports os
