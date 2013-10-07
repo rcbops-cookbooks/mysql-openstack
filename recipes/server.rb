@@ -28,7 +28,7 @@ require 'mysql'
 mysql_network = node["mysql"]["services"]["db"]["network"]
 
 # override default attributes in the upstream mysql cookbook
-node.set["mysql"]["bind_address"] = bind_ip = "0.0.0.0"
+node.set["mysql"]["bind_address"] = bind_ip = get_ip_for_net(node['mysql']['services']['db']['network'])
 node.set['mysql']['tunable']['innodb_thread_concurrency']       = "0"
 node.set['mysql']['tunable']['innodb_commit_concurrency']       = "0"
 node.set['mysql']['tunable']['innodb_read_io_threads']          = "4"
@@ -262,7 +262,10 @@ if rcb_safe_deref(node, "vips.mysql-db")
     virtual_ipaddress Array(vip)
     virtual_router_id router_id  # Needs to be a integer between 1..255
     track_script "mysql"
+    notify_master "/etc/keepalived/update_route.sh add #{vip}"
+    notify_backup "/etc/keepalived/update_route.sh del #{vip}"
+    notify_fault "/etc/keepalived/update_route.sh del #{vip}"
+    notify_stop "/etc/keepalived/update_route.sh del #{vip}"
     notifies :run, "execute[reload-keepalived]", :immediately
   end
-
 end
