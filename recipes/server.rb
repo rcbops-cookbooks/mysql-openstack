@@ -24,6 +24,8 @@ include_recipe "osops-utils"
 include_recipe "mysql::ruby"
 require 'mysql'
 
+platform_options = node["mysql"]["platform"]
+
 # Lookup endpoint info, and properly set mysql attributes
 mysql_network = node["mysql"]["services"]["db"]["network"]
 
