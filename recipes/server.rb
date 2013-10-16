@@ -254,7 +254,7 @@ if rcb_safe_deref(node, "vips.mysql-db")
   end
 
   keepalived_chkscript "mysql" do
-    script "#{platform_options["service_bin"]} #{service} status"
+    script "#{platform_options["service_bin"]} #{platform_options["mysql_service"]} status"
     interval 5
     action :create
   end
