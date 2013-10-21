@@ -36,6 +36,7 @@ node.set['mysql']['tunable']['innodb_commit_concurrency']       = "0"
 node.set['mysql']['tunable']['innodb_read_io_threads']          = "4"
 node.set['mysql']['tunable']['innodb_flush_log_at_trx_commit']  = "2"
 node.set['mysql']['tunable']['log_bin'] = nil
+node.set['mysql']['tunable']['skip-name-resolve'] = true
 
 # search for first_master id (1).  If found, assume we are the second server
 # and configure accordingly.  If not, assume we are the first
