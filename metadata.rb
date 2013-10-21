@@ -2,7 +2,7 @@ name              "mysql-openstack"
 maintainer        "Rackspace US, Inc."
 license           "Apache 2.0"
 description       "Makes the mysql cookbook behave correctly with OpenStack"
-version           "4.2.0"
+version           IO.read(File.join(File.dirname(__FILE__), 'VERSION'))
 
 %w{ centos ubuntu }.each do |os|
   supports os
