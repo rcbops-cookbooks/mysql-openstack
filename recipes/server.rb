@@ -24,6 +24,8 @@ include_recipe "osops-utils"
 include_recipe "mysql::ruby"
 require 'mysql'
 
+platform_options = node["mysql"]["platform"]
+
 # Lookup endpoint info, and properly set mysql attributes
 mysql_network = node["mysql"]["services"]["db"]["network"]
 
@@ -253,7 +255,7 @@ if rcb_safe_deref(node, "vips.mysql-db")
   end
 
   keepalived_chkscript "mysql" do
-    script "killall -0 mysqld"
+    script "#{platform_options["service_bin"]} #{platform_options["mysql_service"]} status"
     interval 5
     action :create
   end
