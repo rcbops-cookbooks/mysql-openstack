@@ -38,6 +38,7 @@ node.set['mysql']['tunable']['innodb_flush_log_at_trx_commit']  = "2"
 node.set['mysql']['tunable']['log_bin'] = nil
 node.set['mysql']['tunable']['skip-name-resolve'] = true
 
+
 # search for first_master id (1).  If found, assume we are the second server
 # and configure accordingly.  If not, assume we are the first
 
@@ -64,8 +65,10 @@ if node["mysql"]["myid"].nil?
       command "sleep 10s"
     end
 
-    cookbook_file "#{node["mysql"]["confd_dir"]}/binlog.cnf" do
+    cookbook_file "#{node['mysql']['server']['directories']['confd_dir']}/binlog.cnf" do
       source "binlog.cnf"
+      path "#{node['mysql']['server']['directories']['confd_dir']}/binlog.cnf"
+      action :create_if_missing
       mode "0644"
       notifies :restart, "service[mysql]", :immediately
     end
@@ -106,8 +109,10 @@ if node["mysql"]["myid"].nil?
       command "sleep 10s"
     end
 
-    cookbook_file "#{node["mysql"]["confd_dir"]}/binlog.cnf" do
+    cookbook_file "#{node['mysql']['server']['directories']['confd_dir']}/binlog.cnf" do
       source "binlog.cnf"
+      path "#{node['mysql']['server']['directories']['confd_dir']}/binlog.cnf"
+      action :create_if_missing
       mode "0644"
       notifies :restart, "service[mysql]", :immediately
     end
@@ -197,9 +202,9 @@ end
 
 # need to ensure this is dropped in here, in case you are coming from an older
 # cookbook version where binlogging was enabled in the main config file
-cookbook_file "ensure #{node["mysql"]["confd_dir"]}/binlog.cnf" do
+cookbook_file "ensure #{node['mysql']['server']['directories']['confd_dir']}/binlog.cnf" do
   source "binlog.cnf"
-  path "#{node["mysql"]["confd_dir"]}/binlog.cnf"
+  path "#{node['mysql']['server']['directories']['confd_dir']}/binlog.cnf"
   action :create_if_missing
   mode "0644"
   notifies :restart, "service[mysql]", :immediately
