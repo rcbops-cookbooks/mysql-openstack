@@ -274,6 +274,6 @@ if rcb_safe_deref(node, "vips.mysql-db")
     notify_backup "/etc/keepalived/notify.sh del #{vrrp_interface} #{vip} #{src_ip}"
     notify_fault "/etc/keepalived/notify.sh del #{vrrp_interface} #{vip} #{src_ip}"
     notify_stop "/etc/keepalived/notify.sh del #{vrrp_interface} #{vip} #{src_ip}"
-    notifies :run, "execute[reload-keepalived]", :immediately
+    notifies :restart, "service[keepalived]", :immediately
   end
 end
