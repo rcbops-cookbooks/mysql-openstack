@@ -200,6 +200,11 @@ if node['mysql']['myid'] == '1'
   end
 end
 
+# to ensure that we pick up attr/config changes and are able to do upgrades etc after a deployment,
+# we need to include the mysql::server recipe again here, since all of the above blocks are skipped
+# after the initial deployment.
+include_recipe "mysql::server"
+
 # need to ensure this is dropped in here, in case you are coming from an older
 # cookbook version where binlogging was enabled in the main config file
 cookbook_file "ensure #{node['mysql']['server']['directories']['confd_dir']}/binlog.cnf" do
@@ -209,11 +214,6 @@ cookbook_file "ensure #{node['mysql']['server']['directories']['confd_dir']}/bin
   mode "0644"
   notifies :restart, "service[mysql]", :immediately
 end
-
-# to ensure that we pick up attr/config changes and are able to do upgrades etc after a deployment,
-# we need to include the mysql::server recipe again here, since all of the above blocks are skipped
-# after the initial deployment.
-include_recipe "mysql::server"
 
 # Cleanup the craptastic mysql default users
 ruby_block "cleanup insecure default mysql users" do
