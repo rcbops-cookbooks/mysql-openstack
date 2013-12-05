@@ -24,16 +24,19 @@ include_recipe "osops-utils"
 include_recipe "mysql::ruby"
 require 'mysql'
 
+platform_options = node["mysql"]["platform"]
+
 # Lookup endpoint info, and properly set mysql attributes
 mysql_network = node["mysql"]["services"]["db"]["network"]
 
 # override default attributes in the upstream mysql cookbook
-node.set["mysql"]["bind_address"] = bind_ip = "0.0.0.0"
+node.set["mysql"]["bind_address"] = bind_ip = get_ip_for_net(node['mysql']['services']['db']['network'])
 node.set['mysql']['tunable']['innodb_thread_concurrency']       = "0"
 node.set['mysql']['tunable']['innodb_commit_concurrency']       = "0"
 node.set['mysql']['tunable']['innodb_read_io_threads']          = "4"
 node.set['mysql']['tunable']['innodb_flush_log_at_trx_commit']  = "2"
 node.set['mysql']['tunable']['log_bin'] = nil
+node.set['mysql']['tunable']['skip-name-resolve'] = true
 
 # search for first_master id (1).  If found, assume we are the second server
 # and configure accordingly.  If not, assume we are the first
@@ -242,6 +245,7 @@ if rcb_safe_deref(node, "vips.mysql-db")
     Chef::Application.fatal! "You have not configured a Network for the VIP.  Please set node[\"vips\"][\"config\"][\"#{vip}\"][\"network\"]"
   end
   vrrp_interface = get_if_for_net(vrrp_network, node)
+  src_ip = get_ip_for_net(vrrp_network, node)
 
   if router_id = rcb_safe_deref(node, "vips_config_#{vip}_vrid","_")
     Chef::Log.debug "using #{router_id} for vips.config.#{vip}.vrid"
@@ -252,17 +256,19 @@ if rcb_safe_deref(node, "vips.mysql-db")
   end
 
   keepalived_chkscript "mysql" do
-    script "killall -0 mysqld"
+    script "#{platform_options["service_bin"]} #{platform_options["mysql_service"]} status"
     interval 5
     action :create
   end
 
   keepalived_vrrp vrrp_name do
     interface vrrp_interface
-    virtual_ipaddress Array(vip)
     virtual_router_id router_id  # Needs to be a integer between 1..255
     track_script "mysql"
-    notifies :run, "execute[reload-keepalived]", :immediately
+    notify_master "/etc/keepalived/notify.sh add #{vrrp_interface} #{vip} #{src_ip}"
+    notify_backup "/etc/keepalived/notify.sh del #{vrrp_interface} #{vip} #{src_ip}"
+    notify_fault "/etc/keepalived/notify.sh del #{vrrp_interface} #{vip} #{src_ip}"
+    notify_stop "/etc/keepalived/notify.sh del #{vrrp_interface} #{vip} #{src_ip}"
+    notifies :restart, "service[keepalived]", :immediately
   end
-
 end
