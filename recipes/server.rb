@@ -166,34 +166,37 @@ if node['mysql']['myid'] == '1'
     second_master_ip = get_ip_for_net(mysql_network, second_master[0])
 
     # attempt to connect to second master as a slave
-    ruby_block "configure slave" do
+    ruby_block "configure slave check" do
       block do
         mysql_conn = Mysql.new(bind_ip, "root", node["mysql"]["server_root_password"])
-        command = %Q{
-        CHANGE MASTER TO
-          MASTER_HOST="#{second_master_ip}",
-          MASTER_USER="repl",
-          MASTER_PASSWORD="#{node["mysql"]["server_repl_password"]}",
-          MASTER_LOG_FILE="mysql-binlog.000001",
-          MASTER_LOG_POS=0;
-          }
-        Chef::Log.info("Attempting to connect back to second master as a slave")
-        Chef::Log.info "Sending start replication command to mysql: "
-        Chef::Log.info command
-
-        mysql_conn.query("stop slave")
-        mysql_conn.query(command)
-        mysql_conn.query("start slave")
-      end
-
-      not_if do
-        #TODO this fails if mysql is not running - check first
-        mysql_conn = Mysql.new(bind_ip, "root", node["mysql"]["server_root_password"])
         slave_sql_running = ""
-        mysql_conn.query("show slave status") {|r| r.each_hash {|h| slave_sql_running = h['Slave_SQL_Running'] } }
-        slave_sql_running == "Yes"
-      end
+        slave_repl_user = ""
+        mysql_conn.query("show slave status") {|r|
+          r.each_hash {|h|
+            slave_sql_running = h['Slave_SQL_Running']
+            slave_repl_user = h['Master_User']
+          }
+        }
+        if slave_sql_running != "Yes" and slave_repl_user != "repl"
+          command = %Q{
+          CHANGE MASTER TO
+            MASTER_HOST="#{second_master_ip}",
+            MASTER_USER="repl",
+            MASTER_PASSWORD="#{node["mysql"]["server_repl_password"]}",
+            MASTER_LOG_FILE="mysql-binlog.000001",
+            MASTER_LOG_POS=0;
+            }
+          Chef::Log.info("Attempting to connect back to second master as a slave")
+          Chef::Log.info "Sending start replication command to mysql: "
+          Chef::Log.info command
 
+          mysql_conn.query("stop slave")
+          mysql_conn.query(command)
+          mysql_conn.query("start slave")
+        else
+          Chef::Log.info("Skipping slave configuration.  Either already configured or slave is in error")
+        end
+      end
     end
   else
   Chef::Log.info("I am currently the only mysql master")
