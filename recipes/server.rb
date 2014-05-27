@@ -208,6 +208,20 @@ end
 # after the initial deployment.
 include_recipe "mysql::server"
 
+# NOTE:(mancdaz) This is a temporary workaround for this upstream bug in the
+# mysql cookbook. It can be removed once the upstream issue is resolved:
+#
+# https://tickets.opscode.com/browse/COOK-4161
+case node['platform_family']
+when 'debian'
+  mycnf_template = '/etc/mysql/my.cnf'
+when 'rhel'
+  mycnf_template = 'final-my.cnf'
+end
+
+r = resources("template[#{mycnf_template}]")
+r.notifies_immediately(:restart, 'service[mysql]')
+
 # need to ensure this is dropped in here, in case you are coming from an older
 # cookbook version where binlogging was enabled in the main config file
 cookbook_file "ensure #{node['mysql']['server']['directories']['confd_dir']}/binlog.cnf" do
