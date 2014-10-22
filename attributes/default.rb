@@ -18,12 +18,14 @@ case platform
 when "fedora", "redhat", "centos", "scientific", "amazon"
   default["mysql"]["platform"] = {                          # node_attribute
     "mysql_service" => "mysqld",
+    "pgrep_bin" => "/usr/bin/pgrep",
     "service_bin" => "/sbin/service",
     "mysql_procmatch" => '^(/bin/sh )?/usr/bin/mysqld_safe\b'
   }
 when "ubuntu", "debian"
   default["mysql"]["platform"] = {                          # node_attribute
     "mysql_service" => "mysql",
+    "pgrep_bin" => "/usr/bin/pgrep",
     "service_bin" => "/usr/sbin/service",
     "mysql_procmatch" => '^/usr/sbin/mysqld\b'
   }
